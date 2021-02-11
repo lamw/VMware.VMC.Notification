@@ -350,6 +350,7 @@ Function Test-VmcNotificationWebhook {
             org_name = "VMC-Customer[0]";
             text = "Test Message";
             message = @{
+                id = "dd768999-d80a-41e1-adc6-b7436506566e";
                 created = "2019-11-05T12:39:45.000811Z";
                 sent = "";
                 failed = "";
