@@ -5,7 +5,7 @@ Function Connect-VmcNotification {
     Created by:    William Lam
     Date:          06/08/2020
     Organization:  VMware
-    Blog:          http://www.virtuallyghetto.com
+    Blog:          http://www.williamlam.com
     Twitter:       @lamw
     ===========================================================================
 
@@ -53,7 +53,7 @@ Function Get-VmcNotificationEvent {
     Created by:    William Lam
     Date:          06/08/2020
     Organization:  VMware
-    Blog:          http://www.virtuallyghetto.com
+    Blog:          http://www.williamlam.com
     Twitter:       @lamw
     ===========================================================================
 
@@ -107,7 +107,7 @@ Function Get-VmcNotificationWebhook {
     Created by:    William Lam
     Date:          06/08/2020
     Organization:  VMware
-    Blog:          http://www.virtuallyghetto.com
+    Blog:          http://www.williamlam.com
     Twitter:       @lamw
     ===========================================================================
 
@@ -186,7 +186,7 @@ Function New-VmcNotificationWebhook {
     Created by:    William Lam
     Date:          06/08/2020
     Organization:  VMware
-    Blog:          http://www.virtuallyghetto.com
+    Blog:          http://www.williamlam.com
     Twitter:       @lamw
     ===========================================================================
 
@@ -271,7 +271,7 @@ Function Remove-VmcNotificationWebhook {
     Created by:    William Lam
     Date:          06/08/2020
     Organization:  VMware
-    Blog:          http://www.virtuallyghetto.com
+    Blog:          http://www.williamlam.com
     Twitter:       @lamw
     ===========================================================================
 
@@ -322,7 +322,7 @@ Function Test-VmcNotificationWebhook {
     Created by:    William Lam
     Date:          06/08/2020
     Organization:  VMware
-    Blog:          http://www.virtuallyghetto.com
+    Blog:          http://www.williamlam.com
     Twitter:       @lamw
     ===========================================================================
 
