@@ -202,6 +202,34 @@ Function New-VmcNotificationWebhook {
         }
 
         New-VmcNotificationWebhook @vmcSlackNotificationParams
+    .EXAMPLE
+        $vmcSlackNotificationParams = @{
+            ClientId = "vmc-sddc-veba-slack-notification";
+            WebhookURL = "https://veba.vmware.com/webhook";
+            WebhookHeaders = @{
+                "Content-Type" = 'application/cloudevents+json'
+            };
+            WebhookBody = @{
+                "id" = "{message.notification_id}"
+                "type" = "vmware.vmc.{event_id}.v0"
+                "source" = "https://vmc.vmware.com/console/sddcs/aws/{org_id}"
+                "specversion" = "1.0"
+                "datacontenttype" = "application/json"
+                "data" = [ordered]@{
+                    "org_id" = "{org_id}"
+                    "org_name" = "{org_name}"
+                    "resource_id" = "{message.resource_id}"
+                    "resource" = "{message.resource_type}"
+                    "resource_name" = "{message.resource_name}"
+                    "message_username" = "{message.user_name}"
+                    "message" = "{message.text}"
+                }
+            };
+            NotificationEvents = @("SDDC-PROVISION","SDDC-DELETE");
+        }
+
+        New-VmcNotificationWebhook @vmcSlackNotificationParams -Troubleshoot
+}
 #>
     Param (
         [Parameter(Mandatory=$true)]$ClientId,
@@ -227,11 +255,14 @@ Function New-VmcNotificationWebhook {
             $payload.web_hook_info.Add("callback_headers",$WebhookHeaders)
         }
 
+        # Body must be JSON encoded string
+        $templateBody = ($WebhookBody | ConvertTo-Json -depth 4).replace(" ", "") -replace "\n", ""
+
         if($WebhookBody -ne $NULL) {
-            $payload.web_hook_info.Add("template",$WebhookBody)
+            $payload.web_hook_info.Add("template",$templateBody)
         }
 
-        $body = $payload | ConvertTo-Json -depth 4
+        $body = $payload | ConvertTo-Json -depth 10
 
         $method = "POST"
         $newWebhookURL = $global:vmcNotificationGWConnection.Server + "/webhooks"
