@@ -203,11 +203,12 @@ Function New-VmcNotificationWebhook {
 
         New-VmcNotificationWebhook @vmcSlackNotificationParams
     .EXAMPLE
-        $vmcSlackNotificationParams = @{
-            ClientId = "vmc-sddc-veba-slack-notification";
+        $vmcVebaWebhookNotificationParams = @{
+            ClientId = "vmc-veba-webhook-notification";
             WebhookURL = "https://veba.vmware.com/webhook";
             WebhookHeaders = @{
                 "Content-Type" = 'application/cloudevents+json'
+                "Authorization" = "Basic XXX"
             };
             WebhookBody = @{
                 "id" = "{message.notification_id}"
@@ -227,8 +228,7 @@ Function New-VmcNotificationWebhook {
             };
             NotificationEvents = @("SDDC-PROVISION","SDDC-DELETE");
         }
-
-        New-VmcNotificationWebhook @vmcSlackNotificationParams -Troubleshoot
+        New-VmcNotificationWebhook @vmcVebaWebhookNotificationParams -Troubleshoot
 }
 #>
     Param (
@@ -256,7 +256,7 @@ Function New-VmcNotificationWebhook {
         }
 
         # Body must be JSON encoded string
-        $templateBody = ($WebhookBody | ConvertTo-Json -depth 4).replace(" ", "") -replace "\n", ""
+        $templateBody = (($WebhookBody | ConvertTo-Json -depth 4).replace(" ", "") -replace "\n", "")
 
         if($WebhookBody -ne $NULL) {
             $payload.web_hook_info.Add("template",$templateBody)
