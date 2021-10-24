@@ -41,6 +41,7 @@ Function Connect-VmcNotification {
     }
     $global:vmcNotificationGWConnection = new-object PSObject -Property @{
         'Server' = "https://vmc.vmware.com/vmc/ng/api/orgs/${orgId}"
+        'Server2' = "https://vmc.vmware.com/api/notification/${orgId}"
         'headers' = $headers
     }
     $global:vmcNotificationGWConnection
@@ -437,6 +438,416 @@ Function Test-VmcNotificationWebhook {
             } else {
                 Write-Host -ForegroundColor Green "Successfully sent test webhook and recieved acknowledgement"
             }
+        }
+    }
+}
+
+Function Get-VmcNotificationType {
+<#
+    .NOTES
+    ===========================================================================
+    Created by:    William Lam
+    Date:          10/23/2021
+    Organization:  VMware
+    Blog:          http://www.williamlam.com
+    Twitter:       @lamw
+    ===========================================================================
+
+    .SYNOPSIS
+        Retrieve all VMC Notification types
+    .DESCRIPTION
+        Retrieve all VMC Notification types
+    .EXAMPLE
+        Get-VmcNotificationType
+    .EXAMPLE
+        Get-VmcNotificationType -CategoryId SDDC_Maintenance
+#>
+    Param (
+        [Parameter(Mandatory=$false)]$CategoryId,
+        [Switch]$Troubleshoot
+    )
+
+    If (-Not $global:vmcNotificationGWConnection) { Write-error "No VMC Notification Connection found, please use Connect-VmcNotification" } Else {
+        $method = "GET"
+
+        if($CategoryId) {
+            $notifTypesURL = $global:vmcNotificationGWConnection.Server2 + "/notification-types?category=${CategoryId}" #system default is page=0 with size=50
+        } else {
+            $notifTypesURL = $global:vmcNotificationGWConnection.Server2 + "/notification-types" #system default is page=0 with size=50
+        }
+
+        if($Troubleshoot) {
+            Write-Host -ForegroundColor cyan "`n[DEBUG] - $METHOD`n$notifTypesURL"
+        }
+
+        try {
+            if($PSVersionTable.PSEdition -eq "Core") {
+                $requests = Invoke-WebRequest -Uri $notifTypesURL -Method $method -Headers $global:vmcNotificationGWConnection.headers -SkipCertificateCheck
+            } else {
+                $requests = Invoke-WebRequest -Uri $notifTypesURL -Method $method -Headers $global:vmcNotificationGWConnection.headers
+            }
+        } catch {
+            if($_.Exception.Response.StatusCode -eq "Unauthorized") {
+                Write-Host -ForegroundColor Red "`nThe VMC Notification session is no longer valid, please re-run the Connect-VmcNotification cmdlet to retrieve a new token`n"
+                break
+            } else {
+                Write-Error "Error in retrieving VMC Notification Webhooks"
+                Write-Error "`n($_.Exception.Message)`n"
+                break
+            }
+        }
+
+        if($requests.StatusCode -eq 200) {
+            $initialNotificationTypeResults = ($requests.Content | ConvertFrom-Json)
+
+            $totalNotificationPages = $initialNotificationTypeResults.total_pages
+            $totalNotificationCount = $initialNotificationTypeResults.total_elements
+
+            if($Troubleshoot) {
+                Write-Host -ForegroundColor cyan "`n[DEBUG] totalNotificationCount = $totalNotificationCount"
+            }
+
+            $totalNotifications = $initialNotificationTypeResults.content
+            $seenNotifications = $totalNotifications.count
+
+            if($Troubleshoot) {
+                Write-Host -ForegroundColor cyan "`n[DEBUG] (currentCount = $seenNotificationss)"
+            }
+
+            $currentPage = 0
+            while ( $currentPage -lt $totalNotificationPages) {
+                $currentPage = $currentPage + 1
+
+                if($CategoryId) {
+                    $newNotifTypesURL = $notifTypesURL + "?category=${CategoryId}&page=$currentPage&size=50" # page=currentPage+1 & size=50 (match initial default)
+                } else {
+                    $newNotifTypesURL = $notifTypesURL + "?page=$currentPage&size=50" # page=currentPage+1 & size=50 (match initial default)
+                }
+
+                $newNotifTypesURL = $notifTypesURL + "?page=$currentPage&size=50" # page=currentPage+1 & size=50 (match initial default)
+
+                if($Troubleshoot) {
+                    Write-Host -ForegroundColor cyan "`n[DEBUG] - $METHOD`n$newNotifTypesURL`n"
+                }
+
+                try {
+                    if($PSVersionTable.PSEdition -eq "Core") {
+                        $requests = Invoke-WebRequest -Uri $newNotifTypesURL -Method $method -Headers $global:vmcNotificationGWConnection.headers -SkipCertificateCheck
+                    } else {
+                        $requests = Invoke-WebRequest -Uri $newNotifTypesURL -Method $method -Headers $global:vmcNotificationGWConnection.headers
+                    }
+                } catch {
+                    if($_.Exception.Response.StatusCode -eq "Unauthorized") {
+                        Write-Host -ForegroundColor Red "`nThe VMC Notification session is no longer valid, please re-run the Connect-VmcNotification cmdlet to retrieve a new token`n"
+                        break
+                    } else {
+                        Write-Error "Error in retrieving VMC Notification Types"
+                        Write-Error "`n($_.Exception.Message)`n"
+                        break
+                    }
+                }
+
+                $NotificationTypeResults = ($requests.Content | ConvertFrom-Json)
+                $totalNotifications += $NotificationTypeResults.content
+                $seenNotifications += $NotificationTypeResults.number_of_elements
+
+                if($Troubleshoot) {
+                    Write-Host -ForegroundColor cyan "`n[DEBUG] $newNotifTypesURL (currentCount = $seenNotifications)"
+                }
+            }
+        }
+    }
+
+    $totalNotifications | Select Name, @{n="Id";e={$_.type}}, Category, Provider, Created, Updated
+}
+
+Function Get-VmcNotificationCategory {
+<#
+    .NOTES
+    ===========================================================================
+    Created by:    William Lam
+    Date:          10/23/2021
+    Organization:  VMware
+    Blog:          http://www.williamlam.com
+    Twitter:       @lamw
+    ===========================================================================
+
+    .SYNOPSIS
+        Retrieve all VMC Notification categories
+    .DESCRIPTION
+        Retrieve all VMC Notification categories
+    .EXAMPLE
+        Get-VmcNotificationCategory
+#>
+    Param (
+        [Switch]$Troubleshoot
+    )
+
+    If (-Not $global:vmcNotificationGWConnection) { Write-error "No VMC Notification Connection found, please use Connect-VmcNotification" } Else {
+        $method = "GET"
+
+        $notifCatesURL = $global:vmcNotificationGWConnection.Server2 + "/notification-categories" #system default is page=0 with size=7
+
+        if($Troubleshoot) {
+            Write-Host -ForegroundColor cyan "`n[DEBUG] - $METHOD`n$notifCatesURL"
+        }
+
+        try {
+            if($PSVersionTable.PSEdition -eq "Core") {
+                $requests = Invoke-WebRequest -Uri $notifCatesURL -Method $method -Headers $global:vmcNotificationGWConnection.headers -SkipCertificateCheck
+            } else {
+                $requests = Invoke-WebRequest -Uri $notifCatesURL -Method $method -Headers $global:vmcNotificationGWConnection.headers
+            }
+        } catch {
+            if($_.Exception.Response.StatusCode -eq "Unauthorized") {
+                Write-Host -ForegroundColor Red "`nThe VMC Notification session is no longer valid, please re-run the Connect-VmcNotification cmdlet to retrieve a new token`n"
+                break
+            } else {
+                Write-Error "Error in retrieving VMC Notification Categories"
+                Write-Error "`n($_.Exception.Message)`n"
+                break
+            }
+        }
+
+        if($requests.StatusCode -eq 200) {
+            $initialNotificationCategoryResults = ($requests.Content | ConvertFrom-Json)
+
+            $totalNotificationPages = $initialNotificationCategoryResults.total_pages
+            $totalNotificationCount = $initialNotificationCategoryResults.total_elements
+
+            if($Troubleshoot) {
+                Write-Host -ForegroundColor cyan "`n[DEBUG] totalNotificationCount = $totalNotificationCount"
+            }
+
+            $totalNotificationCategories = $initialNotificationCategoryResults.content
+            $seenNotificationCategories = $totalNotificationCategories.count
+
+            if($Troubleshoot) {
+                Write-Host -ForegroundColor cyan "`n[DEBUG] (currentCount = $seenNotificationss)"
+            }
+
+            $currentPage = 0
+            while ( $currentPage -lt $totalNotificationPages) {
+                $currentPage = $currentPage + 1
+
+                $newNotifCatsURL = $notifTypesURL + "?page=$currentPage&size=7" # page=currentPage+1 & size=7 (match initial default)
+
+                if($Troubleshoot) {
+                    Write-Host -ForegroundColor cyan "`n[DEBUG] - $METHOD`n$newNotifCatsURL`n"
+                }
+
+                try {
+                    if($PSVersionTable.PSEdition -eq "Core") {
+                        $requests = Invoke-WebRequest -Uri $newNotifCatsURL -Method $method -Headers $global:vmcNotificationGWConnection.headers -SkipCertificateCheck
+                    } else {
+                        $requests = Invoke-WebRequest -Uri $newNotifCatsURL -Method $method -Headers $global:vmcNotificationGWConnection.headers
+                    }
+                } catch {
+                    if($_.Exception.Response.StatusCode -eq "Unauthorized") {
+                        Write-Host -ForegroundColor Red "`nThe VMC Notification session is no longer valid, please re-run the Connect-VmcNotification cmdlet to retrieve a new token`n"
+                        break
+                    } else {
+                        Write-Error "Error in retrieving VMC Notification Categories"
+                        Write-Error "`n($_.Exception.Message)`n"
+                        break
+                    }
+                }
+
+                $NotificationCategoryResults = ($requests.Content | ConvertFrom-Json)
+                $totalNotificationCategories += $NotificationCategoryResults.content
+                $seenNotificationCategories += $NotificationCategoryResults.number_of_elements
+
+                if($Troubleshoot) {
+                    Write-Host -ForegroundColor cyan "`n[DEBUG] $newNotifCatsURL (currentCount = $seenNotificationCategories)"
+                }
+            }
+        }
+    }
+    $totalNotificationCategories | Select @{n="CategoryId";e={$_.Name}},@{n="CategoryName";e={$_.value}}
+}
+
+function Get-JWTtoken {
+<#
+    .DESCRIPTION
+        Decodes a JWT token. This was taken from link below. Thanks to Vasil Michev!
+    .LINK
+        https://www.michev.info/Blog/Post/2140/decode-jwt-access-and-id-tokens-via-powershell
+#>
+    [cmdletbinding()]
+    param(
+        [Parameter(Mandatory = $True)]
+        [string]$Token
+    )
+
+    #Validate as per https://tools.ietf.org/html/rfc7519
+    #Access and ID tokens are fine, Refresh tokens will not work
+    if (-not $Token.Contains(".") -or -not $Token.StartsWith("eyJ")) { Write-Error "Invalid token" -ErrorAction Stop }
+
+    #Header
+    $tokenheader = $Token.Split(".")[0].Replace('-', '+').Replace('_', '/')
+
+    #Fix padding as needed, keep adding "=" until string length modulus 4 reaches 0
+    while ($tokenheader.Length % 4) { Write-Verbose "Invalid length for a Base-64 char array or string, adding ="; $tokenheader += "=" }
+
+    #Payload
+    $tokenPayload = $Token.Split(".")[1].Replace('-', '+').Replace('_', '/')
+
+    #Fix padding as needed, keep adding "=" until string length modulus 4 reaches 0
+    while ($tokenPayload.Length % 4) { Write-Verbose "Invalid length for a Base-64 char array or string, adding ="; $tokenPayload += "=" }
+
+    #Convert to Byte array
+    $tokenByteArray = [System.Convert]::FromBase64String($tokenPayload)
+
+    #Convert to string array
+    $tokenArray = [System.Text.Encoding]::ASCII.GetString($tokenByteArray)
+
+    #Convert from JSON to PSObject
+    $tokobj = $tokenArray | ConvertFrom-Json
+
+    $tokobj
+}
+
+Function Get-VmcNotificationPreference {
+<#
+    .NOTES
+    ===========================================================================
+    Created by:    William Lam
+    Date:          10/23/2021
+    Organization:  VMware
+    Blog:          http://www.williamlam.com
+    Twitter:       @lamw
+    ===========================================================================
+
+    .SYNOPSIS
+        Retrieve current VMC Notification preferences
+    .DESCRIPTION
+        Retrieve current VMC Notification preferences
+    .EXAMPLE
+        Get-VmcNotificationPreference
+    .EXAMPLE
+        Get-VmcNotificationPreference -ExportFileName /Users/lamw/Desktop/notification-pref-lamw.json
+#>
+    Param (
+        [Parameter(Mandatory=$false)]$ExportFileName,
+        [Switch]$Troubleshoot
+    )
+
+    If (-Not $global:vmcNotificationGWConnection) { Write-error "No VMC Notification Connection found, please use Connect-VmcNotification" } Else {
+        $method = "GET"
+
+        $notifPrefURL = ($global:vmcNotificationGWConnection.Server2 | Split-Path) + "/loggedin/user/preferences/categories?include=notification_types"
+
+        if($Troubleshoot) {
+            Write-Host -ForegroundColor cyan "`n[DEBUG] - $METHOD`n$notifPrefURL"
+        }
+
+        try {
+            if($PSVersionTable.PSEdition -eq "Core") {
+                $requests = Invoke-WebRequest -Uri $notifPrefURL -Method $method -Headers $global:vmcNotificationGWConnection.headers -SkipCertificateCheck
+            } else {
+                $requests = Invoke-WebRequest -Uri $notifPrefURL -Method $method -Headers $global:vmcNotificationGWConnection.headers
+            }
+        } catch {
+            if($_.Exception.Response.StatusCode -eq "Unauthorized") {
+                Write-Host -ForegroundColor Red "`nThe VMC Notification session is no longer valid, please re-run the Connect-VmcNotification cmdlet to retrieve a new token`n"
+                break
+            } else {
+                Write-Error "Error in retrieving VMC Notification Preferences"
+                Write-Error "`n($_.Exception.Message)`n"
+                break
+            }
+        }
+
+        if($requests.StatusCode -eq 200) {
+            $categories = ($requests.Content | ConvertFrom-Json).categories
+
+            $tmpResults = @()
+            foreach ($category in $categories) {
+                $tmp = [pscustomobject] @{
+                    "name" = $category.name;
+                    "channels" = $notificationType.channels;
+                    "notification_types" = ($category.notification_types | Select name, channels);
+                }
+                $tmpResults += $tmp
+            }
+
+            $results = [pscustomobject] @{
+                "categories" = $tmpResults
+            }
+
+            if($ExportFileName -eq $null) {
+                $tokenUsername = (Get-JWTtoken -Token $global:vmcNotificationGWConnection.headers['csp-auth-token']).username
+                $ExportFileName = "notification-pref-${tokenUsername}.json"
+
+                Write-Host -ForegroundColor Green "Exporting ${tokenUsername} VMC Notification Preferences to ${ExportFileName} ..."
+                $results | ConvertTo-Json -Depth 5 | Out-File -LiteralPath $ExportFileName
+            } else {
+                Write-Host -ForegroundColor Green "Exporting ${tokenUsername} VMC Notification Preferences to ${ExportFileName} ..."
+                $results | ConvertTo-Json -Depth 5 | Out-File -LiteralPath $ExportFileName
+            }
+        }
+    }
+}
+
+Function Set-VmcNotificationPreference {
+<#
+    .NOTES
+    ===========================================================================
+    Created by:    William Lam
+    Date:          10/23/2021
+    Organization:  VMware
+    Blog:          http://www.williamlam.com
+    Twitter:       @lamw
+    ===========================================================================
+
+    .SYNOPSIS
+        Update current VMC Notification preferences
+    .DESCRIPTION
+        Update current VMC Notification preferences
+    .EXAMPLE
+        Set-VmcNotificationPreference -ImportFileName notification-preference.json
+#>
+    Param (
+        [Parameter(Mandatory=$true)]$ImportFileName,
+        [Switch]$Troubleshoot
+    )
+
+    If (-Not $global:vmcNotificationGWConnection) { Write-error "No VMC Notification Connection found, please use Connect-VmcNotification" } Else {
+        $method = "PATCH"
+
+        $notifPrefURL = ($global:vmcNotificationGWConnection.Server2 | Split-Path) + "/loggedin/user/preferences/categories"
+
+        if($Troubleshoot) {
+            Write-Host -ForegroundColor cyan "`n[DEBUG] - $METHOD`n$notifPrefURL"
+            Write-Host -ForegroundColor cyan "`n[DEBUG] - Body`n${ImportFileName}"
+        }
+
+        try {
+            $json = Get-Content -Raw -LiteralPath $ImportFileName
+        } catch {
+            Write-Error "Failed to read ${ImportFileName}"
+            break
+        }
+
+        try {
+            if($PSVersionTable.PSEdition -eq "Core") {
+                $requests = Invoke-WebRequest -Uri $notifPrefURL -Method $method -Headers $global:vmcNotificationGWConnection.headers -Body $json -SkipCertificateCheck
+            } else {
+                $requests = Invoke-WebRequest -Uri $notifPrefURL -Method $method -Headers $global:vmcNotificationGWConnection.headers
+            }
+        } catch {
+            if($_.Exception.Response.StatusCode -eq "Unauthorized") {
+                Write-Host -ForegroundColor Red "`nThe VMC Notification session is no longer valid, please re-run the Connect-VmcNotification cmdlet to retrieve a new token`n"
+                break
+            } else {
+                Write-Error "Error in updating VMC Notification Preferences"
+                Write-Error "`n($_.Exception.Message)`n"
+                break
+            }
+        }
+
+        if($requests.StatusCode -eq 204) {
+            Write-Host -ForegroundColor Green "Successfully updated VMC Notification Preferences"
         }
     }
 }

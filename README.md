@@ -18,3 +18,7 @@ PowerShell Module to interact with the [VMware Cloud Notification Gateway](https
 * New-VmcNotificationWebhook
 * Remove-VmcNotificationWebhook
 * Test-VmcNotificationWebhook
+* Get-VmcNotificationType
+* Get-VmcNotificationCategory
+* Get-VmcNotificationPreference
+* Set-VmcNotificationPreference

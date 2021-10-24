@@ -12,7 +12,7 @@
 RootModule = 'VMware.VMC.Notification.psm1'
 
 # Version number of this module.
-ModuleVersion = '1.0.6'
+ModuleVersion = '1.0.7'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -38,7 +38,7 @@ PowerShellVersion = '6.0'
 RequiredModules = @('VMware.VimAutomation.Vmc')
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = 'Connect-VmcNotification','Get-VmcNotificationEvent','Get-VmcNotificationWebhook','New-VmcNotificationWebhook','Remove-VmcNotificationWebhook','Test-VmcNotificationWebhook'
+FunctionsToExport = 'Connect-VmcNotification','Get-VmcNotificationEvent','Get-VmcNotificationWebhook','New-VmcNotificationWebhook','Remove-VmcNotificationWebhook','Test-VmcNotificationWebhook','Get-VmcNotificationType','Get-VmcNotificationCategory','Get-JWTtoken','Get-VmcNotificationPreference','Set-VmcNotificationPreference'
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = @()
 
