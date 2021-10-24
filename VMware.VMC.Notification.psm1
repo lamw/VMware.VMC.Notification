@@ -23,10 +23,6 @@ Function Connect-VmcNotification {
         [Parameter(Mandatory=$true)][String]$OrgName
     )
 
-    If (-Not $global:DefaultVMCServers.IsConnected) { Write-error "No valid VMC Connection found, please use the Connect-VMC to connect"; break } Else {
-        $orgId = (Get-VmcOrganization | where {$_.Name -eq $OrgName}).Id
-    }
-
     $results = Invoke-WebRequest -Uri "https://console.cloud.vmware.com/csp/gateway/am/api/auth/api-tokens/authorize" -Method POST -Headers @{accept='application/json'} -Body "refresh_token=$RefreshToken"
     if($results.StatusCode -ne 200) {
         Write-Host -ForegroundColor Red "Failed to retrieve Access Token, please ensure your VMC Refresh Token is valid and try again"
@@ -39,6 +35,28 @@ Function Connect-VmcNotification {
         "Content-Type"="application/json"
         "Accept"="application/json"
     }
+
+    # Retrieve OrgID
+    $results = Invoke-Webrequest -uri https://vmc.vmware.com/vmc/api/orgs -Method Get -headers $headers
+    if($results.StatusCode -ne 200) {
+        Write-Host -ForegroundColor Red "Failed to retrieve Org list."
+        break
+    }
+
+    $resultsJson = $results | ConvertFrom-Json
+    $orgId = $NULL
+    foreach ($org in $resultsJson) {
+        if ( $org.display_name -eq $OrgName ){
+            $orgId = $org.id
+            break
+        }
+    }
+
+    if ($NULL -eq $orgId) {
+        Write-Host "Could not find org named", $OrgName
+        break
+    }
+
     $global:vmcNotificationGWConnection = new-object PSObject -Property @{
         'Server' = "https://vmc.vmware.com/vmc/ng/api/orgs/${orgId}"
         'Server2' = "https://vmc.vmware.com/api/notification/${orgId}"
